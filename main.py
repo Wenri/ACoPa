@@ -33,7 +33,7 @@ class ACoPe:
                 p = lab[mS]
                 c = np.mean(p, axis=0)
                 s = np.std(p, axis=0)
-                yield iH, iS, c, s
+                yield iH, iS, p.shape[0], c, s
 
     def __init__(self, img, lab):
         self.img = img
@@ -45,8 +45,8 @@ def print_hi(name):
     print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
 
     img, lab = read_image(name)
-    for i, j, c, s in ACoPe(img, lab):
-        print(i, j,
+    for i, j, n, c, s in ACoPe(img, lab):
+        print(i, j, n,
               np.array2string(c, precision=2, separator=',', suppress_small=True),
               np.array2string(s, precision=2, separator=',', suppress_small=True), )
 
