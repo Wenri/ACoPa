@@ -37,7 +37,15 @@ def read_image(img_path):
         srgb_icc = ImageCms.createProfile('sRGB')
         img = ImageCms.profileToProfile(image, orig_icc, srgb_icc)
 
+        # Create sRGB ICC profile and convert image to sRGB
+        lab_icc = ImageCms.createProfile('LAB', colorTemp=6500)
+        lab = ImageCms.profileToProfile(image, orig_icc, lab_icc, outputMode='LAB')
+
     img = torch.from_numpy(np.asarray(img) / 255)
     img = rgb_to_hsv(rearrange(img, 'h w c -> 1 c h w'))
-    img = rearrange(img.squeeze(0), 'c h w -> (h w) c')
-    return img
+    img = rearrange(img.squeeze(0), 'c h w -> (h w) c').numpy()
+
+    lab = np.asarray(lab)
+    lab = np.concatenate((lab[..., 0:1], lab.view(np.int8)[..., 1:3]), dtype=np.float_, axis=-1)
+    lab = rearrange(lab, 'h w c -> (h w) c')
+    return img, lab
