@@ -1,3 +1,4 @@
+import torch
 from itertools import pairwise
 
 import matlabengine
@@ -20,7 +21,7 @@ def get_meancolor(p, start, end):
     return np.mean(p[mask], axis=0)
 
 
-def seg_hist(H, e=0.):
+def seg_hist(H, e=0.5):
     [idx], = eng.FTC_Seg(H[None].astype(np.double), e)
     return idx.astype(np.int_)
 
@@ -36,8 +37,8 @@ def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
     print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
 
-    img = read_image(name)
-    H, edges = np.histogram(img[:, 1], bins=256, range=(-128, 128))
+    img = read_image(name).numpy()
+    H, edges = np.histogram(img[:, 0], bins=256, range=(0, 2 * torch.pi))
 
     for [start, end] in pairwise(edges[seg_hist(H)]):
         p = get_pixels(img, start, end)
@@ -46,7 +47,7 @@ def print_hi(name):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('/md/NeRF_Data/nerf_llff_data/fern/images/IMG_4026.JPG')
+    print_hi('../nerf-pytorch/data/nerf_llff_data/fern/images/IMG_4026.JPG')
     input('Press any key to exit')
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

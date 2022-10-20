@@ -1,9 +1,11 @@
 import logging
 from io import BytesIO
 
+import torch
 from PIL import Image, ImageCms
 from einops import rearrange
 import numpy as np
+from kornia.color import rgb_to_hsv
 
 
 def srgb_to_linear(img):
@@ -32,10 +34,10 @@ def read_image(img_path):
         log.debug('Original ICC profile: {}'.format(desc))
 
         # Create sRGB ICC profile and convert image to sRGB
-        lab_icc = ImageCms.createProfile('LAB', colorTemp=6500)
-        img = ImageCms.profileToProfile(image, orig_icc, lab_icc, outputMode='LAB')
+        srgb_icc = ImageCms.createProfile('sRGB')
+        img = ImageCms.profileToProfile(image, orig_icc, srgb_icc)
 
-    img = np.asarray(img)
-    img = np.concatenate((img[..., 0:1], img.view(np.int8)[..., 1:3]), axis=-1)
-    img = rearrange(img, 'h w c -> (h w) c')
+    img = torch.from_numpy(np.asarray(img) / 255)
+    img = rgb_to_hsv(rearrange(img, 'h w c -> 1 c h w'))
+    img = rearrange(img.squeeze(0), 'c h w -> (h w) c')
     return img
