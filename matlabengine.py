@@ -36,15 +36,19 @@ class MatRet(object):
 
 
 class MatEng(object):
-    m_eng = matlab.engine.start_matlab(background=True)
-    source_path = os.path.dirname(os.path.abspath(__file__))
-    gen_path = [f.path for f in os.scandir(source_path)
-                if f.is_dir() and not f.name.startswith('.')]
+    def __init__(self, **kwargs):
+        self._eng = matlab.engine.start_matlab(background=True, **kwargs)
 
-    def __init__(self):
-        self._eng = self.m_eng.result()
-        self._eng.addpath(*self.gen_path)
+    @property
+    def m_eng(self):
+        if isinstance(self._eng, matlab.engine.FutureResult):
+            source_path = os.path.dirname(os.path.abspath(__file__))
+            gen_path = [f.path for f in os.scandir(source_path) if f.is_dir() and not f.name.startswith('.')]
+            self._eng = self._eng.result()
+            self._eng.addpath(*gen_path)
+
+        return self._eng
 
     def __getattr__(self, item):
-        func = partial(getattr(self._eng, item), background=True)
+        func = partial(getattr(self.m_eng, item), background=True)
         return lambda *args, **kwargs: MatRet(func(*args, **kwargs), kwargs.get('nargout'))
