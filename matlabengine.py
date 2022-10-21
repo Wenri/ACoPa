@@ -18,21 +18,15 @@ def m2np(x):
 
 
 class MatRet(object):
-    def __init__(self, result, nargout=None):
+    def __init__(self, result):
+        assert isinstance(result, matlab.engine.FutureResult)
         self._ret = result
-        self._nargout = nargout
 
     def __iter__(self):
-        if self._nargout:
-            for v in self.result:
-                yield m2np(v)
-        else:
-            yield m2np(self.result)
+        return map(m2np, self._ret.result())
 
-    @property
     def result(self):
-        assert isinstance(self._ret, matlab.engine.FutureResult)
-        return self._ret.result()
+        return m2np(self._ret.result())
 
 
 class MatEng(object):
@@ -51,4 +45,4 @@ class MatEng(object):
 
     def __getattr__(self, item):
         func = partial(getattr(self.m_eng, item), background=True)
-        return lambda *args, **kwargs: MatRet(func(*args, **kwargs), kwargs.get('nargout'))
+        return lambda *args, **kwargs: MatRet(func(*args, **kwargs))

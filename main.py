@@ -1,7 +1,7 @@
 from collections import namedtuple
 
 import torch
-from itertools import pairwise, starmap
+from itertools import pairwise, starmap, chain
 
 import matlabengine
 import numpy as np
@@ -10,21 +10,26 @@ from einops import rearrange
 from color_utils import read_image
 from matlabengine import MatEng
 
+eng = MatEng()
+
 
 class SegHist:
-    eng = MatEng()
-
     def _get_mask(self, start, end):
-        return np.logical_and(self.p >= start, self.p < end)
+        if start < end:
+            return np.logical_and(self.p >= start, self.p < end)
+        else:
+            return np.logical_or(self.p >= start, self.p < end)
 
-    def __init__(self, p, range, e):
+    def __init__(self, p, range, e, debug=False):
         self.p = p
         self.H, self.edges = np.histogram(p, bins=256, range=range)
-        [idx], = self.eng.FTC_Seg(self.H[None].astype(np.float_), float(e))
-        self.idx = idx.astype(np.int_)
+        idx = eng.FTC_Seg(self.H[None].astype(np.float_), float(e), debug).result()
+        self.idx = np.asarray(idx, dtype=np.int_).reshape(-1)
 
     def __iter__(self):
-        return starmap(self._get_mask, pairwise(self.edges[self.idx]))
+        edges = self.edges[self.idx]
+        edges = chain(edges, edges[:1])
+        return starmap(self._get_mask, pairwise(edges))
 
 
 class ACoPe:
@@ -45,20 +50,37 @@ class ACoPe:
         self.lab = lab
         self.e = e
 
+    def get_modes(self):
+        w1 = list()
+        f1 = list()
+        for i, j, n, c, s in self:
+            w1.append(n)
+            f1.append(np.concatenate((c, s)))
+            print(i, j, n,
+                  np.array2string(c, precision=2, separator=',', suppress_small=True),
+                  np.array2string(s, precision=2, separator=',', suppress_small=True), )
+        w1 = np.stack(w1, axis=0) / sum(w1)
+        f1 = np.stack(f1, axis=0)
+        return w1, f1
 
-def print_hi(name):
+
+def solve_transfer(name, ref):
     # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+    print(f'Hello, Underworld. {name} -> {ref}')  # Press Ctrl+F8 to toggle the breakpoint.
 
-    img, lab = read_image(name)
-    for i, j, n, c, s in ACoPe(img, lab):
-        print(i, j, n,
-              np.array2string(c, precision=2, separator=',', suppress_small=True),
-              np.array2string(s, precision=2, separator=',', suppress_small=True), )
+    img = ACoPe(*read_image(name))
+    ref = ACoPe(*read_image(ref))
+
+    w1, f1 = img.get_modes()
+    w2, f2 = ref.get_modes()
+
+    f, fval = eng.testemd(f1, f2, w1[:, None], w2[:, None], nargout=2)
+    print(fval)
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('../nerf-pytorch/data/nerf_llff_data/fern/images/IMG_4026.JPG')
+    solve_transfer('../nerf-pytorch/data/nerf_llff_data/fern/images/IMG_4026.JPG',
+                   '../nerf-pytorch/data/nerf_real_360/vasedeck/images/IMG_8475.JPG')
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
