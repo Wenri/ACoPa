@@ -38,6 +38,7 @@ class SegHist:
 
 class ACoPe:
     _COPE_RET_T = namedtuple(typename='_COPE_RET_T', field_names=['iH', 'iS', 'n', 'c', 's'])
+    _PARAM_E_T = namedtuple(typename='_PARAM_E_T', field_names=['eH', 'eS'])
 
     def __iter__(self):
         eH, eS = self.e
@@ -49,7 +50,7 @@ class ACoPe:
                 s = np.std(p, axis=0)
                 yield self._COPE_RET_T(iH, iS, p.shape[0], c, s)
 
-    def __init__(self, img, lab, size=None, e=(100., 100.)):
+    def __init__(self, img, lab, size=None, e=_PARAM_E_T(1000., 100.)):
         self.img = img
         self.lab = lab
         self.size = size
@@ -74,7 +75,7 @@ def solve_transfer(name, ref):
     print(f'Hello, Underworld. {name} -> {ref}')  # Press Ctrl+F8 to toggle the breakpoint.
 
     img = ACoPe(*read_image(name))
-    ref = ACoPe(*read_image(ref))
+    ref = ACoPe(*read_image(ref), e=(100., 10.))
 
     w1, f1 = img.get_modes()
     w2, f2 = ref.get_modes()
@@ -99,7 +100,7 @@ def solve_transfer(name, ref):
     transimg = rearrange(transimg, '(h w) c ->1 c h w', w=img.size[0])
     transimg = lab_to_rgb(torch.as_tensor(transimg))
     transimg = rearrange(transimg.squeeze(0), 'c h w -> h w c')
-    transimg = transimg.numpy() * 255
+    transimg = np.clip((transimg.numpy() * 255).round(), 0, 255)
 
     imageio.imwrite('transimg1.png', transimg.astype(np.uint8))
     print('Transfered image:', transimg.shape)
@@ -108,7 +109,8 @@ def solve_transfer(name, ref):
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     solve_transfer('../nerf-pytorch/data/nerf_llff_data/fern/images/IMG_4026.JPG',
-                   '../nerf-pytorch/data/nerf_real_360/vasedeck/images/IMG_8475.JPG')
-    # '../nerf-pytorch/data/nerf_synthetic/materials/train/r_15.png')
+                   # '../nerf-pytorch/data/nerf_real_360/vasedeck/images/IMG_8475.JPG')
+                   # '../nerf-pytorch/data/nerf_synthetic/materials/train/r_15.png')
+                   '../nerf-pytorch/data/gbc_scannet/scene0521_00/images/1498.jpg')
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

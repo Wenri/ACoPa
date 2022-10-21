@@ -62,9 +62,9 @@ def read_image(img_path, blend_a=True):
 
 
 def save_image(img_path, L, a, b, size):
-    L = np.clip(L, 0, 255).astype(np.uint8)
-    a = np.clip(a, -128, 127).astype(np.int8).view(np.uint8)
-    b = np.clip(b, -128, 127).astype(np.int8).view(np.uint8)
+    L = np.clip(L.round(), 0, 255).astype(np.uint8)
+    a = np.clip(a.round(), -128, 127).astype(np.int8).view(np.uint8)
+    b = np.clip(b.round(), -128, 127).astype(np.int8).view(np.uint8)
     lab = rearrange(np.stack((L, a, b), axis=1), '(h w) c -> h w c', w=size[0], h=size[1])
     lab = Image.fromarray(lab, mode='LAB')
     # Create sRGB ICC profile and convert image to sRGB
