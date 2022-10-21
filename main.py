@@ -1,3 +1,5 @@
+from collections import namedtuple
+
 import torch
 from itertools import pairwise, starmap
 
@@ -15,10 +17,10 @@ class SegHist:
     def _get_mask(self, start, end):
         return np.logical_and(self.p >= start, self.p < end)
 
-    def __init__(self, p, range, e=1000.):
+    def __init__(self, p, range, e):
         self.p = p
         self.H, self.edges = np.histogram(p, bins=256, range=range)
-        [idx], = self.eng.FTC_Seg(self.H[None].astype(np.double), e)
+        [idx], = self.eng.FTC_Seg(self.H[None].astype(np.float_), float(e))
         self.idx = idx.astype(np.int_)
 
     def __iter__(self):
@@ -26,18 +28,22 @@ class SegHist:
 
 
 class ACoPe:
+    _COPE_RET_T = namedtuple(typename='_COPE_RET_T', field_names=['iH', 'iS', 'n', 'c', 's'])
+
     def __iter__(self):
-        for iH, mH in enumerate(SegHist(self.img[:, 0], range=(0., 2 * torch.pi))):
+        eH, eS = self.e
+        for iH, mH in enumerate(SegHist(self.img[:, 0], range=(0., 2 * torch.pi), e=eH)):
             lab = self.lab[mH]
-            for iS, mS in enumerate(SegHist(self.img[mH, 1], range=(0., 1.))):
+            for iS, mS in enumerate(SegHist(self.img[mH, 1], range=(0., 1.), e=eS)):
                 p = lab[mS]
                 c = np.mean(p, axis=0)
                 s = np.std(p, axis=0)
-                yield iH, iS, p.shape[0], c, s
+                yield self._COPE_RET_T(iH, iS, p.shape[0], c, s)
 
-    def __init__(self, img, lab):
+    def __init__(self, img, lab, e=(1000., 1000.)):
         self.img = img
         self.lab = lab
+        self.e = e
 
 
 def print_hi(name):

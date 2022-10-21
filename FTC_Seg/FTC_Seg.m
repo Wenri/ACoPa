@@ -14,7 +14,7 @@
 %   Copyright (c) 2016 Julie Delon
 %%%%%%%%%%%%%%%%%
 
-function idx = FTC_Seg(H,e)
+function idx = FTC_Seg(H,e,show)
 
 % FTC_seg
 
@@ -111,12 +111,14 @@ end
 
 
 %% Display the segmentation
-bar(H,'r');
-hold on;
-for k = 1:length(idx)
-    line([idx(k) idx(k)], [0 max(H(:))]);
+if (exist('show', 'var') && show)
+    bar(H,'r');
+    hold on;
+    for k = 1:length(idx)
+        line([idx(k) idx(k)], [0 max(H(:))]);
+    end
+    hold off;
 end
-hold off;
 
 end
 
