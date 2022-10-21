@@ -1,13 +1,16 @@
+import math
 from collections import namedtuple
-
-import torch
 from itertools import pairwise, starmap, chain
 
-import matlabengine
+import imageio
+import matlab.engine
 import numpy as np
+import torch
 from einops import rearrange
+from kornia.color import lab_to_rgb
 
-from color_utils import read_image
+from color_utils import read_image, save_image
+from imagewrap import _make_warp
 from matlabengine import MatEng
 
 eng = MatEng()
@@ -16,9 +19,10 @@ eng = MatEng()
 class SegHist:
     def _get_mask(self, start, end):
         if start < end:
-            return np.logical_and(self.p >= start, self.p < end)
+            p = np.logical_and(self.p >= start, self.p < end)
         else:
-            return np.logical_or(self.p >= start, self.p < end)
+            p = np.logical_or(self.p >= start, self.p < end)
+        return p
 
     def __init__(self, p, range, e, debug=False):
         self.p = p
@@ -29,7 +33,7 @@ class SegHist:
     def __iter__(self):
         edges = self.edges[self.idx]
         edges = chain(edges, edges[:1])
-        return starmap(self._get_mask, pairwise(edges))
+        return filter(np.any, starmap(self._get_mask, pairwise(edges)))
 
 
 class ACoPe:
@@ -37,7 +41,7 @@ class ACoPe:
 
     def __iter__(self):
         eH, eS = self.e
-        for iH, mH in enumerate(SegHist(self.img[:, 0], range=(0., 2 * torch.pi), e=eH)):
+        for iH, mH in enumerate(SegHist(self.img[:, 0], range=(0., 2 * math.pi), e=eH)):
             lab = self.lab[mH]
             for iS, mS in enumerate(SegHist(self.img[mH, 1], range=(0., 1.), e=eS)):
                 p = lab[mS]
@@ -45,9 +49,10 @@ class ACoPe:
                 s = np.std(p, axis=0)
                 yield self._COPE_RET_T(iH, iS, p.shape[0], c, s)
 
-    def __init__(self, img, lab, e=(1000., 1000.)):
+    def __init__(self, img, lab, size=None, e=(100., 100.)):
         self.img = img
         self.lab = lab
+        self.size = size
         self.e = e
 
     def get_modes(self):
@@ -77,7 +82,27 @@ def solve_transfer(name, ref):
     f, fval = eng.testemd(f1, f2, w1[:, None], w2[:, None], nargout=2)
     print(f'Minimal flow cost {fval}')
     ft = np.matmul(f.T, f2)
-    print('New modes', np.array2string(ft[..., :3], precision=4, separator=',', suppress_small=True), )
+    ft /= np.sum(f, axis=0)[:, None]
+
+    print('Mode transfer')
+    for old, new in zip(f1[:, :3], ft[:, :3]):
+        print(np.array2string(old, precision=4, separator=',', suppress_small=True), '->',
+              np.array2string(new, precision=4, separator=',', suppress_small=True))
+
+    from_points = np.ascontiguousarray(f1[:, 1:3])
+    to_points = np.ascontiguousarray(ft[:, 1:3])
+    a, b = _make_warp(from_points, to_points, img.lab[:, 1], img.lab[:, 2])
+    save_image('transimg.png', img.lab[:, 0], a, b, img.size)
+
+    L = img.lab[:, 0] * 20 / 51
+    transimg = np.stack((L, a, b), axis=1)
+    transimg = rearrange(transimg, '(h w) c ->1 c h w', w=img.size[0])
+    transimg = lab_to_rgb(torch.as_tensor(transimg))
+    transimg = rearrange(transimg.squeeze(0), 'c h w -> h w c')
+    transimg = transimg.numpy() * 255
+
+    imageio.imwrite('transimg1.png', transimg.astype(np.uint8))
+    print('Transfered image:', transimg.shape)
 
 
 # Press the green button in the gutter to run the script.

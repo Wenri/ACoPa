@@ -58,4 +58,19 @@ def read_image(img_path, blend_a=True):
     lab = np.asarray(lab)
     lab = np.concatenate((lab[..., 0:1], lab.view(np.int8)[..., 1:3]), dtype=np.float_, axis=-1)
     lab = rearrange(lab, 'h w c -> (h w) c')
-    return img, lab
+    return img, lab, image.size
+
+
+def save_image(img_path, L, a, b, size):
+    L = np.clip(L, 0, 255).astype(np.uint8)
+    a = np.clip(a, -128, 127).astype(np.int8).view(np.uint8)
+    b = np.clip(b, -128, 127).astype(np.int8).view(np.uint8)
+    lab = rearrange(np.stack((L, a, b), axis=1), '(h w) c -> h w c', w=size[0], h=size[1])
+    lab = Image.fromarray(lab, mode='LAB')
+    # Create sRGB ICC profile and convert image to sRGB
+    lab_icc = ImageCms.createProfile('LAB', colorTemp=6500)
+
+    # Create sRGB ICC profile and convert image to sRGB
+    srgb_icc = ImageCms.createProfile('sRGB')
+    img = ImageCms.profileToProfile(lab, lab_icc, srgb_icc, outputMode='RGB')
+    img.save(img_path)
