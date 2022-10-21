@@ -20,28 +20,38 @@ def linear_to_srgb(img):
     return img
 
 
-def read_image(img_path):
+def read_image(img_path, blend_a=True):
     log = logging.getLogger(__name__)
     # Read image
     with Image.open(img_path) as image:
         orig_icc = image.info.get('icc_profile')
-        # Extract original ICC profile
-        with BytesIO(orig_icc) as icc:
-            orig_icc = ImageCms.ImageCmsProfile(icc)
-        desc = ImageCms.getProfileDescription(orig_icc)
 
-        # Plot image with original ICC profile
-        log.debug('Original ICC profile: {}'.format(desc))
+        if orig_icc:
+            # Extract original ICC profile
+            with BytesIO(orig_icc) as icc:
+                orig_icc = ImageCms.ImageCmsProfile(icc)
+            desc = ImageCms.getProfileDescription(orig_icc)
+            # Plot image with original ICC profile
+            log.debug('Original ICC profile: {}'.format(desc))
 
-        # Create sRGB ICC profile and convert image to sRGB
-        srgb_icc = ImageCms.createProfile('sRGB')
-        img = ImageCms.profileToProfile(image, orig_icc, srgb_icc)
+            # Create sRGB ICC profile and convert image to sRGB
+            srgb_icc = ImageCms.createProfile('sRGB')
+            img = ImageCms.profileToProfile(image, orig_icc, srgb_icc)
+        else:
+            orig_icc = ImageCms.createProfile('sRGB')
+            log.warning('No ICC profile found. Assuming sRGB.')
+            img = image
 
         # Create sRGB ICC profile and convert image to sRGB
         lab_icc = ImageCms.createProfile('LAB', colorTemp=6500)
         lab = ImageCms.profileToProfile(image, orig_icc, lab_icc, outputMode='LAB')
 
     img = torch.from_numpy(np.asarray(img) / 255)
+    if img.shape[-1] == 4:
+        if blend_a:
+            img = img[..., :3] * img[..., -1:] + (1 - img[..., -1:])
+        else:
+            img = img[..., :3] * img[..., -1:]
     img = rgb_to_hsv(rearrange(img, 'h w c -> 1 c h w'))
     img = rearrange(img.squeeze(0), 'c h w -> (h w) c').numpy()
 

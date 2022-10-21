@@ -75,12 +75,15 @@ def solve_transfer(name, ref):
     w2, f2 = ref.get_modes()
 
     f, fval = eng.testemd(f1, f2, w1[:, None], w2[:, None], nargout=2)
-    print(fval)
+    print(f'Minimal flow cost {fval}')
+    ft = np.matmul(f.T, f2)
+    print('New modes', np.array2string(ft[..., :3], precision=4, separator=',', suppress_small=True), )
 
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     solve_transfer('../nerf-pytorch/data/nerf_llff_data/fern/images/IMG_4026.JPG',
                    '../nerf-pytorch/data/nerf_real_360/vasedeck/images/IMG_8475.JPG')
+    # '../nerf-pytorch/data/nerf_synthetic/materials/train/r_15.png')
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
