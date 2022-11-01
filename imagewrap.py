@@ -62,17 +62,17 @@ def _make_inverse_warp(from_points, to_points, output_region, approximate_grid):
     return transform
 
 
-_small = 1e-100
+_small = numpy.finfo(numpy.float_).eps
 
 
 def _U(x):
-    return (x ** 2) * numpy.where(x < _small, 0, numpy.log(x))
+    return x * numpy.where(x < _small, 0, numpy.log(x) / 2)
 
 
 def _interpoint_distances(points):
     xd = numpy.subtract.outer(points[:, 0], points[:, 0])
     yd = numpy.subtract.outer(points[:, 1], points[:, 1])
-    return numpy.sqrt(xd ** 2 + yd ** 2)
+    return numpy.square(xd) + numpy.square(yd)
 
 
 def _make_L_matrix(points):
@@ -89,22 +89,23 @@ def _calculate_f(coeffs, points, x, y):
     w = coeffs[:-3]
     a1, ax, ay = coeffs[-3:]
     # The following uses too much RAM:
-    # distances = _U(numpy.sqrt((points[:,0]-x[...,numpy.newaxis])**2 + (points[:,1]-y[...,numpy.newaxis])**2))
+    # distances = _U(numpy.square(points[:, 0] - x[..., numpy.newaxis]) +
+    #                numpy.square(points[:, 1] - y[..., numpy.newaxis]))
     # summation = (w * distances).sum(axis=-1)
-    summation = numpy.zeros(x.shape)
+    summation = numpy.zeros_like(x)
     for wi, Pi in zip(w, points):
-        summation += wi * _U(numpy.sqrt((x - Pi[0]) ** 2 + (y - Pi[1]) ** 2))
+        summation += wi * _U(numpy.square(x - Pi[0]) + numpy.square(y - Pi[1]))
     return a1 + ax * x + ay * y + summation
 
 
 def _make_warp(from_points, to_points, x_vals, y_vals):
     from_points, to_points = numpy.asarray(from_points), numpy.asarray(to_points)
-    err = numpy.seterr(divide='ignore')
+    # err = numpy.seterr(divide='ignore')
     L = _make_L_matrix(from_points)
     V = numpy.resize(to_points, (len(to_points) + 3, 2))
     V[-3:, :] = 0
-    coeffs = numpy.dot(numpy.linalg.pinv(L), V)
+    coeffs = numpy.linalg.lstsq(L, V, rcond=None)[0]
     x_warp = _calculate_f(coeffs[:, 0], from_points, x_vals, y_vals)
     y_warp = _calculate_f(coeffs[:, 1], from_points, x_vals, y_vals)
-    numpy.seterr(**err)
+    # numpy.seterr(**err)
     return [x_warp, y_warp]

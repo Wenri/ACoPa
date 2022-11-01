@@ -74,11 +74,16 @@ def solve_transfer(name, ref):
     # Use a breakpoint in the code line below to debug your script.
     print(f'Hello, Underworld. {name} -> {ref}')  # Press Ctrl+F8 to toggle the breakpoint.
 
-    img = ACoPe(*read_image(name))
-    ref = ACoPe(*read_image(ref), e=(100., 10.))
+    img = ACoPe(*read_image(name), e=(300., 5.))
+    ref = ACoPe(*read_image(ref), e=(0., 0.))
 
     w1, f1 = img.get_modes()
     w2, f2 = ref.get_modes()
+
+    print(f'w1: {len(w1)}, w2: {len(w2)}')
+
+    # w1 = np.ones_like(w1) / len(w1)
+    # w2 = np.ones_like(w2) / len(w2)
 
     f, fval = eng.testemd(f1, f2, w1[:, None], w2[:, None], nargout=2)
     print(f'Minimal flow cost {fval}')
@@ -92,6 +97,7 @@ def solve_transfer(name, ref):
 
     from_points = np.ascontiguousarray(f1[:, 1:3])
     to_points = np.ascontiguousarray(ft[:, 1:3])
+    np.savez('transimg.npz', from_points=from_points, to_points=to_points)
     a, b = _make_warp(from_points, to_points, img.lab[:, 1], img.lab[:, 2])
     save_image('transimg.png', img.lab[:, 0], a, b, img.size)
 
@@ -103,6 +109,7 @@ def solve_transfer(name, ref):
     transimg = np.clip((transimg.numpy() * 255).round(), 0, 255)
 
     imageio.imwrite('transimg1.png', transimg.astype(np.uint8))
+
     print('Transfered image:', transimg.shape)
 
 
