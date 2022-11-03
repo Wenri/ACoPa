@@ -97,7 +97,8 @@ def solve_transfer(name, ref):
 
     from_points = np.ascontiguousarray(f1[:, 1:3])
     to_points = np.ascontiguousarray(ft[:, 1:3])
-    np.savez('transimg.npz', from_points=from_points, to_points=to_points)
+    ref_points = np.ascontiguousarray(f2[:, 1:3])
+    np.savez('transimg.npz', from_points=from_points, to_points=to_points, ref_points=ref_points, flow=f)
     a, b = _make_warp(from_points, to_points, img.lab[:, 1], img.lab[:, 2])
     save_image('transimg.png', img.lab[:, 0], a, b, img.size)
 
