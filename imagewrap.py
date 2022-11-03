@@ -1,5 +1,5 @@
-from scipy import ndimage
 import numpy
+from scipy import ndimage
 
 
 def warp_images(from_points, to_points, images, output_region, interpolation_order=1, approximate_grid=2):
@@ -86,6 +86,19 @@ def _make_L_matrix(points):
 
 
 def _calculate_f(coeffs, points, x, y):
+    w = coeffs[:-3]
+    a1, ax, ay = coeffs[-3:]
+    # The following uses too much RAM:
+    # distances = _U(numpy.square(points[:, 0] - x[..., numpy.newaxis]) +
+    #                numpy.square(points[:, 1] - y[..., numpy.newaxis]))
+    # summation = (w * distances).sum(axis=-1)
+    summation = numpy.zeros_like(x)
+    for wi, Pi in zip(w, points):
+        summation += wi * _U(numpy.square(x - Pi[0]) + numpy.square(y - Pi[1]))
+    return a1 + ax * x + ay * y + summation
+
+
+def _rev_calculate_f(coeffs, points, x, y):
     w = coeffs[:-3]
     a1, ax, ay = coeffs[-3:]
     # The following uses too much RAM:
