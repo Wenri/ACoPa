@@ -87,6 +87,7 @@ def solve_transfer(name, ref):
 
     f, fval = eng.testemd(f1, f2, w1[:, None], w2[:, None], nargout=2)
     print(f'Minimal flow cost {fval}')
+    f = f.astype(np.longdouble)
     ft = np.matmul(f.T, f2)
     ft /= np.sum(f, axis=0)[:, None]
 
@@ -95,15 +96,21 @@ def solve_transfer(name, ref):
         print(np.array2string(old, precision=4, separator=',', suppress_small=True), '->',
               np.array2string(new, precision=4, separator=',', suppress_small=True))
 
-    from_points = np.ascontiguousarray(f1[:, 1:3])
-    to_points = np.ascontiguousarray(ft[:, 1:3])
-    ref_points = np.ascontiguousarray(f2[:, 1:3])
+    from_points = np.ascontiguousarray(f1[:, 1:3], dtype=np.longdouble)
+    to_points = np.ascontiguousarray(ft[:, 1:3], dtype=np.longdouble)
+    ref_points = np.ascontiguousarray(f2[:, 1:3], dtype=np.longdouble)
     np.savez('transimg.npz', from_points=from_points, to_points=to_points, ref_points=ref_points, flow=f)
-    a, b = _make_warp(from_points, to_points, img.lab[:, 1], img.lab[:, 2])
+
+    print('Warp Pixel transfer')
+    a, b = img.lab[:, 1].astype(np.longdouble), img.lab[:, 2].astype(np.longdouble)
+    a, b = _make_warp(from_points, to_points, a, b)
+
+    print('Saving Lab image')
     save_image('transimg.png', img.lab[:, 0], a, b, img.size)
 
+    print('Saving RGB image')
     L = img.lab[:, 0] * 20 / 51
-    transimg = np.stack((L, a, b), axis=1)
+    transimg = np.stack((L, a.astype(L.dtype), b.astype(L.dtype)), axis=1)
     transimg = rearrange(transimg, '(h w) c ->1 c h w', w=img.size[0])
     transimg = lab_to_rgb(torch.as_tensor(transimg))
     transimg = rearrange(transimg.squeeze(0), 'c h w -> h w c')

@@ -1,4 +1,5 @@
 import numpy
+import scipy.linalg
 from scipy import ndimage
 
 
@@ -62,11 +63,13 @@ def _make_inverse_warp(from_points, to_points, output_region, approximate_grid):
     return transform
 
 
-_small = numpy.finfo(numpy.float_).eps
-
-
-def _U(x):
-    return x * numpy.where(x < _small, 0, numpy.log(x) / 2)
+def _U(x, _small=None):
+    if _small is None:
+        _small = numpy.finfo(x.dtype).tiny
+    m = x >= _small
+    t = numpy.zeros_like(x)
+    t[m] = numpy.log(x[m]) / 2
+    return x * t
 
 
 def _interpoint_distances(points):
@@ -117,7 +120,7 @@ def _make_warp(from_points, to_points, x_vals, y_vals):
     L = _make_L_matrix(from_points)
     V = numpy.resize(to_points, (len(to_points) + 3, 2))
     V[-3:, :] = 0
-    coeffs = numpy.linalg.lstsq(L, V, rcond=None)[0]
+    coeffs = scipy.linalg.lstsq(L, V, overwrite_a=True, overwrite_b=True)[0]
     x_warp = _calculate_f(coeffs[:, 0], from_points, x_vals, y_vals)
     y_warp = _calculate_f(coeffs[:, 1], from_points, x_vals, y_vals)
     # numpy.seterr(**err)
