@@ -70,7 +70,7 @@ class ACoPe:
         return w1, f1
 
 
-def solve_transfer(name, ref):
+def solve_transfer(name, ref, dtype=np.longdouble):
     # Use a breakpoint in the code line below to debug your script.
     print(f'Hello, Underworld. {name} -> {ref}')  # Press Ctrl+F8 to toggle the breakpoint.
 
@@ -84,10 +84,10 @@ def solve_transfer(name, ref):
 
     # w1 = np.ones_like(w1) / len(w1)
     # w2 = np.ones_like(w2) / len(w2)
-
-    f, fval = eng.testemd(f1, f2, w1[:, None], w2[:, None], nargout=2)
+    selector = (1, 2, 4, 5)  # m_a, m_b, s_a, s_b
+    f, fval = eng.testemd(f1[:, selector], f2[:, selector], w1[:, None], w2[:, None], nargout=2)
     print(f'Minimal flow cost {fval}')
-    f = f.astype(np.longdouble)
+    f, f1, f2 = f.astype(dtype), f1.astype(dtype), f2.astype(dtype)
     ft = np.matmul(f.T, f2)
     ft /= np.sum(f, axis=0)[:, None]
 
@@ -96,12 +96,11 @@ def solve_transfer(name, ref):
         print(np.array2string(old, precision=4, separator=',', suppress_small=True), '->',
               np.array2string(new, precision=4, separator=',', suppress_small=True))
 
-    from_points = np.ascontiguousarray(f1[:, 1:3], dtype=np.longdouble)
-    to_points = np.ascontiguousarray(ft[:, 1:3], dtype=np.longdouble)
-    ref_points = np.ascontiguousarray(f2[:, 1:3], dtype=np.longdouble)
-    np.savez('transimg.npz', from_points=from_points, to_points=to_points, ref_points=ref_points, flow=f)
+    np.savez('transimg.npz', from_points=f1, to_points=ft, ref_points=f2, flow=f)
 
     print('Warp Pixel transfer')
+    from_points = np.ascontiguousarray(f1[:, 1:3], dtype=dtype)
+    to_points = np.ascontiguousarray(ft[:, 1:3], dtype=dtype)
     a, b = img.lab[:, 1].astype(np.longdouble), img.lab[:, 2].astype(np.longdouble)
     a, b = _make_warp(from_points, to_points, a, b)
 
